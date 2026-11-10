@@ -35,6 +35,10 @@ def _schema(include_creds: bool, defaults: dict | None = None) -> vol.Schema:
         vol.Optional(
             "user_id", default=defaults.get("user_id", "")
         ): str,
+        vol.Optional("group_id", default=defaults.get("group_id", "")): str,
+        vol.Optional(
+            "member_user_id", default=defaults.get("member_user_id", "")
+        ): str,
     }
     if include_creds:
         fields[vol.Optional("email", default=defaults.get("email", ""))] = str
@@ -78,8 +82,14 @@ class MyDutyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             user_id = (user_input.get("user_id") or "").strip()
             email = (user_input.get("email") or "").strip()
             password = user_input.get("password") or ""
+            group_id = (user_input.get("group_id") or "").strip()
+            member_id = (user_input.get("member_user_id") or "").strip()
             if not name:
                 errors["name"] = "required"
+            elif bool(group_id) != bool(member_id):
+                errors["base"] = "group_pair_required"
+            elif group_id and not (group_id.isdigit() and member_id.isdigit()):
+                errors["base"] = "group_ids_numeric"
             else:
                 resolved, error = await _resolve_user_id(user_id, email, password)
                 if error:
@@ -87,10 +97,11 @@ class MyDutyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 else:
                     await self.async_set_unique_id(resolved)
                     self._abort_if_unique_id_configured()
-                    return self.async_create_entry(
-                        title=name,
-                        data={"name": name, "id": resolved, "user_id": resolved},
-                    )
+                    data = {"name": name, "id": resolved, "user_id": resolved}
+                    if group_id:
+                        data["group_id"] = group_id
+                        data["member_user_id"] = member_id
+                    return self.async_create_entry(title=name, data=data)
 
         return self.async_show_form(
             step_id="user",
@@ -127,6 +138,12 @@ class MyDutyOptionsFlowHandler(config_entries.OptionsFlow):
             user_id = (user_input.get("user_id") or "").strip()
             email = (user_input.get("email") or "").strip()
             password = user_input.get("password") or ""
+            group_id = (user_input.get("group_id") or "").strip()
+            member_id = (user_input.get("member_user_id") or "").strip()
+            if bool(group_id) != bool(member_id):
+                errors["base"] = "group_pair_required"
+            elif group_id and not (group_id.isdigit() and member_id.isdigit()):
+                errors["base"] = "group_ids_numeric"
 
             new_user_id = current
             if user_id or (email and password):
@@ -146,6 +163,8 @@ class MyDutyOptionsFlowHandler(config_entries.OptionsFlow):
                         "user_id": new_user_id,
                         # keep the entity key of pre-0.2 entries
                         "id": _entity_key(entry),
+                        "group_id": group_id,
+                        "member_user_id": member_id,
                     },
                 )
 
@@ -161,6 +180,18 @@ class MyDutyOptionsFlowHandler(config_entries.OptionsFlow):
                 ): str,
                 vol.Optional("email", default=""): str,
                 vol.Optional("password", default=""): str,
+                vol.Optional(
+                    "group_id",
+                    default=str(options.get("group_id") or entry.data.get("group_id") or ""),
+                ): str,
+                vol.Optional(
+                    "member_user_id",
+                    default=str(
+                        options.get("member_user_id")
+                        or entry.data.get("member_user_id")
+                        or ""
+                    ),
+                ): str,
                 vol.Optional("sync_time_1", default=sync_times[0]): str,
                 vol.Optional("sync_time_2", default=sync_times[1]): str,
                 vol.Optional("sync_time_3", default=sync_times[2]): str,

@@ -43,6 +43,12 @@ The old `share_id` is only kept as the stable entity key
 
 ## Options
 
+* `Group id` + `Member user id` — optional: read one member's roster from a
+  shared MYDUTY group instead of your own calendar. Use this when the roster
+  belongs to someone else (e.g. a partner) and you don't want to store their
+  login. Both fields are numeric; get the group id from the group's page in
+  the app (the invite link/admin API) and the member id from the group's member
+  list.
 * `User id` — switch accounts without signing in again.
 * `E-mail` + `Password` — optional, used to resolve a new user id.
 * `Sync time 1..3` — daily refresh times (default `00:05`, `12:00`, `17:30`).
@@ -84,5 +90,6 @@ automation:
 
 * The user id is effectively the credential for reading a calendar; treat it
   like a password.
-* One entry per MYDUTY account. For someone else's roster, use that person's
-  account or a shared group via the app API.
+* One entry per MYDUTY account. For someone else's roster without their
+  password, create a group in the app, add them, and enter `Group id` +
+  `Member user id` in the integration.

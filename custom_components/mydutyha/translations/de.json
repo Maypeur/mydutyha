@@ -8,7 +8,9 @@
           "name": "Name",
           "user_id": "User-ID (optional)",
           "email": "E-Mail",
-          "password": "Passwort"
+          "password": "Passwort",
+          "group_id": "Gruppen-ID (optional)",
+          "member_user_id": "Mitglieder-User-ID (optional)"
         }
       }
     },
@@ -18,7 +20,9 @@
       "cannot_connect": "MYDUTY ist nicht erreichbar.",
       "invalid_user_id": "Die User-ID muss numerisch sein.",
       "unknown_user": "Diese User-ID kennt MYDUTY nicht.",
-      "credentials_required": "User-ID oder E-Mail und Passwort angeben."
+      "credentials_required": "User-ID oder E-Mail und Passwort angeben.",
+      "group_pair_required": "Gruppen-ID und Mitglieder-User-ID gemeinsam angeben (oder keine).",
+      "group_ids_numeric": "Gruppen-ID und Mitglieder-User-ID müssen numerisch sein."
     },
     "abort": {
       "already_configured": "Dieser MYDUTY-Nutzer ist bereits eingerichtet."
@@ -35,7 +39,9 @@
           "password": "Passwort (optional)",
           "sync_time_1": "Sync-Zeit 1",
           "sync_time_2": "Sync-Zeit 2",
-          "sync_time_3": "Sync-Zeit 3"
+          "sync_time_3": "Sync-Zeit 3",
+          "group_id": "Gruppen-ID (optional)",
+          "member_user_id": "Mitglieder-User-ID (optional)"
         }
       }
     },
@@ -46,7 +52,9 @@
       "cannot_connect": "MYDUTY ist nicht erreichbar.",
       "invalid_user_id": "Die User-ID muss numerisch sein.",
       "unknown_user": "Diese User-ID kennt MYDUTY nicht.",
-      "credentials_required": "Für diesen Eintrag fehlt die User-ID; eintragen oder anmelden."
+      "credentials_required": "Für diesen Eintrag fehlt die User-ID; eintragen oder anmelden.",
+      "group_pair_required": "Gruppen-ID und Mitglieder-User-ID gemeinsam angeben (oder keine).",
+      "group_ids_numeric": "Gruppen-ID und Mitglieder-User-ID müssen numerisch sein."
     }
   }
 }

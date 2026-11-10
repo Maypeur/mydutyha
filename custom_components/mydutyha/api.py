@@ -64,8 +64,15 @@ def _signed_params() -> dict[str, str]:
 class MyDutyApi:
     """Minimal async client for the MYDUTY app API."""
 
-    def __init__(self, user_id: str | None = None) -> None:
+    def __init__(
+        self,
+        user_id: str | None = None,
+        group_id: str | None = None,
+        member_id: str | None = None,
+    ) -> None:
         self.user_id = str(user_id) if user_id else "0"
+        self.group_id = str(group_id) if group_id else None
+        self.member_id = str(member_id) if member_id else None
         self.base = DEFAULT_API_BASE
 
     # -- transport ---------------------------------------------------------
@@ -163,9 +170,11 @@ class MyDutyApi:
                 await session.close()
         return body.get("user") or {}
 
-    async def async_duty_units(self, session: aiohttp.ClientSession) -> list[dict]:
+    async def async_duty_units(
+        self, session: aiohttp.ClientSession, user_id: str | None = None
+    ) -> list[dict]:
         body = await self._request(
-            session, "GET", f"schedules/{self.user_id}/duty-units"
+            session, "GET", f"schedules/{user_id or self.user_id}/duty-units"
         )
         return body.get("dutyUnits") or []
 
@@ -183,6 +192,42 @@ class MyDutyApi:
         )
         return body.get("schedulesForMonths") or []
 
+    async def async_group_member_schedules(
+        self,
+        session: aiohttp.ClientSession,
+        group_id: str,
+        member_id: str,
+        start: date,
+        end: date,
+    ) -> tuple[list[dict], list[dict]]:
+        """Return (duty_units, month_blocks) for one member of a group."""
+        body = await self._request(
+            session,
+            "GET",
+            (
+                f"groups/{group_id}/schedules/duty/"
+                f"{start.year}/{start.month:02d}/{end.year}/{end.month:02d}"
+            ),
+        )
+        members = (body.get("group") or {}).get("members") or []
+        member = next(
+            (
+                item
+                for item in members
+                if str((item.get("user") or {}).get("userId")) == str(member_id)
+            ),
+            None,
+        )
+        if member is None:
+            raise MyDutyError(
+                f"user {member_id} is not a member of group {group_id}"
+            )
+        user = member.get("user") or {}
+        duty_units = user.get("dutyUnitList") or []
+        if not duty_units:
+            duty_units = await self.async_duty_units(session, member_id)
+        return duty_units, member.get("schedulesForMonths") or []
+
     async def async_fetch_data(self) -> dict:
         """Return {"duty_units": [...], "month_blocks": [...]}."""
         await self.async_bootstrap()
@@ -192,6 +237,11 @@ class MyDutyApi:
         else:
             start = date(today.year, today.month - 1, 1)
         async with aiohttp.ClientSession(timeout=TIMEOUT) as session:
-            duty_units = await self.async_duty_units(session)
-            month_blocks = await self.async_schedules(session, start, today)
+            if self.group_id and self.member_id:
+                duty_units, month_blocks = await self.async_group_member_schedules(
+                    session, self.group_id, self.member_id, start, today
+                )
+            else:
+                duty_units = await self.async_duty_units(session)
+                month_blocks = await self.async_schedules(session, start, today)
         return {"duty_units": duty_units, "month_blocks": month_blocks}

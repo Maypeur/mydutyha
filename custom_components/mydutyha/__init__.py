@@ -26,7 +26,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "in with your MYDUTY e-mail and password."
         )
 
-    coordinator = MyDutyCoordinator(hass, user_id)
+    group_id = (
+        entry.options.get("group_id")
+        or entry.data.get("group_id")
+        or None
+    )
+    member_id = (
+        entry.options.get("member_user_id")
+        or entry.data.get("member_user_id")
+        or None
+    )
+    coordinator = MyDutyCoordinator(hass, user_id, group_id, member_id)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
     await coordinator.async_config_entry_first_refresh()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

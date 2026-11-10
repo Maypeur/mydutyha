@@ -14,8 +14,14 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class MyDutyCoordinator(DataUpdateCoordinator):
-    def __init__(self, hass, user_id: str) -> None:
-        self.api = MyDutyApi(user_id)
+    def __init__(
+        self,
+        hass,
+        user_id: str,
+        group_id: str | None = None,
+        member_id: str | None = None,
+    ) -> None:
+        self.api = MyDutyApi(user_id, group_id, member_id)
         super().__init__(
             hass,
             _LOGGER,

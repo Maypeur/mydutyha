@@ -8,7 +8,9 @@
           "name": "Name",
           "user_id": "User id (optional)",
           "email": "E-mail",
-          "password": "Password"
+          "password": "Password",
+          "group_id": "Group id (optional)",
+          "member_user_id": "Member user id (optional)"
         }
       }
     },
@@ -18,7 +20,9 @@
       "cannot_connect": "Could not reach MYDUTY.",
       "invalid_user_id": "The user id must be numeric.",
       "unknown_user": "MYDUTY does not know that user id.",
-      "credentials_required": "Enter a user id, or an e-mail and password."
+      "credentials_required": "Enter a user id, or an e-mail and password.",
+      "group_pair_required": "Give both the group id and the member user id, or neither.",
+      "group_ids_numeric": "Group id and member user id must be numeric."
     },
     "abort": {
       "already_configured": "This MYDUTY user is already configured."
@@ -35,7 +39,9 @@
           "password": "Password (optional)",
           "sync_time_1": "Sync time 1",
           "sync_time_2": "Sync time 2",
-          "sync_time_3": "Sync time 3"
+          "sync_time_3": "Sync time 3",
+          "group_id": "Group id (optional)",
+          "member_user_id": "Member user id (optional)"
         }
       }
     },
@@ -46,7 +52,9 @@
       "cannot_connect": "Could not reach MYDUTY.",
       "invalid_user_id": "The user id must be numeric.",
       "unknown_user": "MYDUTY does not know that user id.",
-      "credentials_required": "This entry has no user id yet; enter one or sign in."
+      "credentials_required": "This entry has no user id yet; enter one or sign in.",
+      "group_pair_required": "Give both the group id and the member user id, or neither.",
+      "group_ids_numeric": "Group id and member user id must be numeric."
     }
   }
 }
