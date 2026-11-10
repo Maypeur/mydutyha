@@ -2,11 +2,21 @@ from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 
+def _entity_key(entry) -> str:
+    """Stable key for entity ids; keeps the ids of pre-0.2 share-link entries."""
+    return str(
+        entry.options.get("id")
+        or entry.data.get("id")
+        or entry.data.get("share_id")
+        or entry.data.get("user_id")
+    )
+
+
 class MyDutyIsWorkedSensor(CoordinatorEntity, BinarySensorEntity):
-    def __init__(self, coordinator, share_id):
+    def __init__(self, coordinator, entity_key):
         super().__init__(coordinator)
-        self._attr_name = f"MyDuty {share_id} Is Worked"
-        self._attr_unique_id = f"myduty_{share_id}_day_is_worked"
+        self._attr_name = f"MyDuty {entity_key} Is Worked"
+        self._attr_unique_id = f"myduty_{entity_key}_day_is_worked"
 
     @property
     def is_on(self):
@@ -28,10 +38,10 @@ class MyDutyIsWorkedSensor(CoordinatorEntity, BinarySensorEntity):
 
 
 class MyDutyIsOffSensor(CoordinatorEntity, BinarySensorEntity):
-    def __init__(self, coordinator, share_id):
+    def __init__(self, coordinator, entity_key):
         super().__init__(coordinator)
-        self._attr_name = f"MyDuty {share_id} Is Off"
-        self._attr_unique_id = f"myduty_{share_id}_day_is_off"
+        self._attr_name = f"MyDuty {entity_key} Is Off"
+        self._attr_unique_id = f"myduty_{entity_key}_day_is_off"
 
     @property
     def is_on(self):
@@ -43,10 +53,10 @@ class MyDutyIsOffSensor(CoordinatorEntity, BinarySensorEntity):
 
 
 class MyDutyIsNightShiftSensor(CoordinatorEntity, BinarySensorEntity):
-    def __init__(self, coordinator, share_id):
+    def __init__(self, coordinator, entity_key):
         super().__init__(coordinator)
-        self._attr_name = f"MyDuty {share_id} Is Night Shift"
-        self._attr_unique_id = f"myduty_{share_id}_is_night_shift"
+        self._attr_name = f"MyDuty {entity_key} Is Night Shift"
+        self._attr_unique_id = f"myduty_{entity_key}_is_night_shift"
 
     @property
     def is_on(self):
@@ -68,10 +78,10 @@ class MyDutyIsNightShiftSensor(CoordinatorEntity, BinarySensorEntity):
 
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data["mydutyha"][entry.entry_id]
-    share_id = entry.data.get("share_id")
+    entity_key = _entity_key(entry)
     entities = [
-        MyDutyIsWorkedSensor(coordinator, share_id),
-        MyDutyIsOffSensor(coordinator, share_id),
-        MyDutyIsNightShiftSensor(coordinator, share_id),
+        MyDutyIsWorkedSensor(coordinator, entity_key),
+        MyDutyIsOffSensor(coordinator, entity_key),
+        MyDutyIsNightShiftSensor(coordinator, entity_key),
     ]
     async_add_entities(entities, True)

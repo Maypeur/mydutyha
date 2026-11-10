@@ -1,0 +1,52 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "MYDUTY account",
+        "description": "Sign in with your MYDUTY e-mail and password (only the numeric user id is stored), or enter a known numeric user id.",
+        "data": {
+          "name": "Name",
+          "user_id": "User id (optional)",
+          "email": "E-mail",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "required": "This field is required.",
+      "invalid_auth": "MYDUTY rejected the e-mail/password.",
+      "cannot_connect": "Could not reach MYDUTY.",
+      "invalid_user_id": "The user id must be numeric.",
+      "unknown_user": "MYDUTY does not know that user id.",
+      "credentials_required": "Enter a user id, or an e-mail and password."
+    },
+    "abort": {
+      "already_configured": "This MYDUTY user is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "MyDutyHA options",
+        "description": "Sign in again to switch accounts, and set the daily sync times.",
+        "data": {
+          "user_id": "User id (optional)",
+          "email": "E-mail (optional)",
+          "password": "Password (optional)",
+          "sync_time_1": "Sync time 1",
+          "sync_time_2": "Sync time 2",
+          "sync_time_3": "Sync time 3"
+        }
+      }
+    },
+    "error": {
+      "invalid_format": "Use HH:MM.",
+      "at_least_one_time": "Set at least one sync time.",
+      "invalid_auth": "MYDUTY rejected the e-mail/password.",
+      "cannot_connect": "Could not reach MYDUTY.",
+      "invalid_user_id": "The user id must be numeric.",
+      "unknown_user": "MYDUTY does not know that user id.",
+      "credentials_required": "This entry has no user id yet; enter one or sign in."
+    }
+  }
+}

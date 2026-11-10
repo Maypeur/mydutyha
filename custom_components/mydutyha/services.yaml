@@ -1,9 +1,9 @@
 sync_now:
-  description: "Force MyDuty sync for user(s)"
+  description: "Force a MyDUTY refresh for one or all configured people"
   fields:
-    share_id:
-      description: "Share ID to sync (optional, all if omitted)"
-      example: "7169199277729942"
+    user_id:
+      description: "MYDUTY user id to sync (optional, all entries if omitted)"
+      example: "3363376425761097"
       required: false
       selector:
         text:
