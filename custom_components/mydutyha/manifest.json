@@ -2,12 +2,13 @@
   "domain": "mydutyha",
   "name": "MyDutyHA",
   "codeowners": [
+    "@Maypeur",
     "@fschmid1"
   ],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/fschmid1/mydutyha",
+  "documentation": "https://github.com/Maypeur/MyDutyHA",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/fschmid1/mydutyha/issues",
+  "issue_tracker": "https://github.com/Maypeur/MyDutyHA/issues",
   "version": "0.2.3"
 }

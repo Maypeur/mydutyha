@@ -19,7 +19,7 @@ numeric user id afterwards.
 
 ## Installation
 
-1. Install via HACS (custom repository `fschmid1/mydutyha`) or copy
+1. Install via HACS (custom repository `Maypeur/MyDutyHA`) or copy
    `custom_components/mydutyha` into your `config/custom_components` folder.
 2. Restart Home Assistant.
 3. **Settings → Devices & Services → Add Integration → MyDutyHA**.
