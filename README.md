@@ -17,9 +17,6 @@ numeric user id afterwards.
   password is **not** kept.
 * Or paste a numeric user id directly.
 
-See [MYDUTY_PROTOCOL.md](../../MYDUTY_PROTOCOL.md) in the development notes for
-the full protocol (bootstrap, signing, endpoints, models).
-
 ## Installation
 
 1. Install via HACS (custom repository `fschmid1/mydutyha`) or copy
@@ -78,7 +75,7 @@ automation:
         at: "06:00:00"
     conditions:
       - condition: state
-        entity_id: sensor.myduty_3363376425761097_day_code
+        entity_id: sensor.myduty_<id>_day_code
         state: "FD"
     actions:
       - action: notify.mobile_app_iphone
