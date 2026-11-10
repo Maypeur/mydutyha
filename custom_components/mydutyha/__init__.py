@@ -1,64 +1,98 @@
-# MyDutyHA custom component initialization
+"""MyDutyHA - MYDUTY shift calendar for Home Assistant."""
 
+from __future__ import annotations
+
+import logging
+
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.event import async_track_time_change
-from .coordinator import MyDutyCoordinator
+
 from .const import DOMAIN
+from .coordinator import MyDutyCoordinator
 
-async def async_setup_entry(hass, entry):
-    # Setup coordinator and platforms
-    coordinator = MyDutyCoordinator(hass, entry)
+_LOGGER = logging.getLogger(__name__)
 
-    hass.data.setdefault('mydutyha', {})[entry.entry_id] = coordinator
+DEFAULT_SYNC_TIMES = ["00:05", "12:00", "17:30"]
+PLATFORMS = ["sensor", "binary_sensor"]
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    user_id = str(entry.options.get("user_id") or entry.data.get("user_id") or "")
+    if not user_id:
+        raise ConfigEntryNotReady(
+            "No MYDUTY user id configured. Open the MyDutyHA options and sign "
+            "in with your MYDUTY e-mail and password."
+        )
+
+    group_id = (
+        entry.options.get("group_id")
+        or entry.data.get("group_id")
+        or None
+    )
+    member_id = (
+        entry.options.get("member_user_id")
+        or entry.data.get("member_user_id")
+        or None
+    )
+    coordinator = MyDutyCoordinator(hass, user_id, group_id, member_id)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
     await coordinator.async_config_entry_first_refresh()
-    await hass.config_entries.async_forward_entry_setups(entry, ['sensor', 'binary_sensor'])
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Schedule synchronizations based on user configuration
     async def scheduled_update(now):
         await coordinator.async_request_refresh()
 
-    DEFAULT_SYNC_TIMES = ["00:05", "12:00", "17:30"]
-    sync_times = entry.options.get("sync_times", DEFAULT_SYNC_TIMES)
-    for sync_time in sync_times:
+    unsubs = []
+    for sync_time in entry.options.get("sync_times", DEFAULT_SYNC_TIMES):
         try:
             hour, minute = map(int, sync_time.split(":"))
-        except Exception:
+        except (ValueError, AttributeError):
             continue
-        async_track_time_change(
-            hass,
-            scheduled_update,
-            hour=hour,
-            minute=minute,
-            second=0,
+        unsubs.append(
+            async_track_time_change(
+                hass, scheduled_update, hour=hour, minute=minute, second=0
+            )
         )
-    # Register service to force sync
+
+    def remove_time_listeners():
+        while unsubs:
+            unsubs.pop()()
+
+    entry.async_on_unload(remove_time_listeners)
+    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
+
     async def handle_sync_now(call):
-        share_id = call.data.get("share_id")
-        # find matching entries
-        entries = hass.config_entries.async_entries(DOMAIN)
-        if share_id:
-            for e in entries:
-                if str(e.data.get("share_id")) == str(share_id):
-                    coord = hass.data.get("mydutyha", {}).get(e.entry_id)
-                    if coord:
-                        await coord.async_request_refresh()
-        else:
-            for coord in hass.data.get("mydutyha", {}).values():
+        wanted = call.data.get("user_id")
+        wanted = str(wanted) if wanted is not None else None
+        for entry_id, coord in list(hass.data.get(DOMAIN, {}).items()):
+            if wanted is None:
+                await coord.async_request_refresh()
+                continue
+            user_id = str(
+                getattr(coord.api, "user_id", "")
+            )
+            if user_id == wanted:
                 await coord.async_request_refresh()
 
     hass.services.async_register(DOMAIN, "sync_now", handle_sync_now)
     return True
 
-async def async_unload_entry(hass, entry):
 
-    await hass.config_entries.async_unload_platforms(entry, ['sensor', 'binary_sensor'])
-    hass.data['mydutyha'].pop(entry.entry_id)
+async def _async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload so new sync times / credentials take effect."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
-    # If no more entries, remove the service
-    entries = hass.config_entries.async_entries(DOMAIN)
-    if not entries:
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
+
+    if unload_ok and not hass.data.get(DOMAIN):
         try:
             hass.services.async_remove(DOMAIN, "sync_now")
-        except Exception:
-            _ = None
-
-    return True
+        except Exception:  # noqa: BLE001 - service may not be registered
+            pass
+    return unload_ok

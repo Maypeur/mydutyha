@@ -1,68 +1,92 @@
 # MyDutyHA
 
-## Introduction
+Home Assistant integration for [MYDUTY](https://www.myduty.io/) shift schedules.
 
-This integration was made for my wife, a nurse at the Geneva University Hospitals (Hopitaux Universitaires de Genève).
+**v0.2.0 uses the MYDUTY app API instead of a web share link.** Share links
+expire after 10 days (MYDUTY rotates them); the app API does not. Nothing here
+scrapes the website.
 
-Retrieve your share id from your url, this way this components only access to your calendar readonly.
+## How it works
 
-You can add multiple share id to handle more person inside the same home assistant entity.
+`kr.fourwheels.api` (the app's own client) signs every request with a key
+embedded in the APK and identifies the account with the numeric `userId`. The
+integration therefore needs your MYDUTY account once, and keeps only the
+numeric user id afterwards.
+
+* Sign in with e-mail + password → the user id is resolved and stored. The
+  password is **not** kept.
+* Or paste a numeric user id directly.
 
 ## Installation
 
-This integration is fully HACS compliant. Find it at:
-https://github.com/Maypeur/MyDutyHA
+1. Install via HACS (custom repository `Maypeur/MyDutyHA`) or copy
+   `custom_components/mydutyha` into your `config/custom_components` folder.
+2. Restart Home Assistant.
+3. **Settings → Devices & Services → Add Integration → MyDutyHA**.
+4. Enter a name, then either e-mail + password or a numeric user id.
 
-1. Install via HACS (Home Assistant Community Store)
-2. Restart Home Assistant
-3. Add the MyDutyHA integration through the Home Assistant interface
+### Upgrading from 0.1.x (share link)
 
-## Configuration
+Existing entries keep their entity ids, so automations and dashboards do not
+change:
 
-- Add one or more persons (name, share_id, sync times)
-- Customize sync times per person
+1. **Settings → Devices & Services → MyDutyHA → Configure**.
+2. Sign in with the MYDUTY account whose roster you want (e-mail + password),
+   or paste its numeric user id.
+3. Save. Sync times stay as they were.
 
-## Automations
+The old `share_id` is only kept as the stable entity key
+(`sensor.myduty_<share_id>_day_code`). It is never fetched again.
 
-Example YAML automation to detect a worked day:
+## Options
+
+* `Group id` + `Member user id` — optional: read one member's roster from a
+  shared MYDUTY group instead of your own calendar. Use this when the roster
+  belongs to someone else (e.g. a partner) and you don't want to store their
+  login. Both fields are numeric; get the group id from the group's page in
+  the app (the invite link/admin API) and the member id from the group's member
+  list.
+* `User id` — switch accounts without signing in again.
+* `E-mail` + `Password` — optional, used to resolve a new user id.
+* `Sync time 1..3` — daily refresh times (default `00:05`, `12:00`, `17:30`).
+
+## Entities
+
+| Entity | Meaning |
+|---|---|
+| `sensor.myduty_<id>_day_code` | shift code (`FD`, `Day`, `Nig`, `Off`, …) |
+| `sensor.myduty_<id>_day_start` / `_day_end` | shift times as `HH:MM` |
+| `binary_sensor.myduty_<id>_is_worked` | working today |
+| `binary_sensor.myduty_<id>_is_off` | off / vacation today |
+| `binary_sensor.myduty_<id>_is_night_shift` | night shift (incl. one started yesterday) |
+
+## Service
+
+`mydutyha.sync_now` — refresh immediately; optional `user_id`, otherwise all
+entries.
+
+## Example
 
 ```yaml
-alias: Notification for worked day
-trigger:
-  - platform: state
-    entity_id: binary_sensor.myduty_1234567890123456_day_is_worked
-    to: 'on'
-action:
-  - service: notify.mobile_app_your_app
-    data:
-      message: "You are working today!"
+automation:
+  - alias: Reminder on early shifts
+    triggers:
+      - trigger: time
+        at: "06:00:00"
+    conditions:
+      - condition: state
+        entity_id: sensor.myduty_<id>_day_code
+        state: "FD"
+    actions:
+      - action: notify.mobile_app_iphone
+        data:
+          message: "Did you take your meds?"
 ```
 
-## Exposed Entities
+## Notes
 
-- sensor.myduty_{share_id}_day_code
-The code of the service.
-
-- sensor.myduty_{share_id}_day_start
-The hour your service start.
-
-- sensor.myduty_{share_id}_day_end
-The hour your service end.
-
-- binary_sensor.myduty_{share_id}_day_is_worked
-If your work the current day.
-
-- binary_sensor.myduty_{share_id}_day_is_off
-If your are on vacation this day.
-
-- binary_sensor.myduty_{share_id}_is_night_shift
-If your service started from the day before.
-
-
-## Services
-
-- `mydutyha.sync_now`: manual synchronization
-
-## Logs
-
-- Network and synchronization errors are logged in Home Assistant
+* The user id is effectively the credential for reading a calendar; treat it
+  like a password.
+* One entry per MYDUTY account. For someone else's roster without their
+  password, create a group in the app, add them, and enter `Group id` +
+  `Member user id` in the integration.

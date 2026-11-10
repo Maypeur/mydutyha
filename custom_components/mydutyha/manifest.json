@@ -1,12 +1,14 @@
 {
   "domain": "mydutyha",
   "name": "MyDutyHA",
-  "version": "0.1.0",
-  "requirements": ["aiohttp"],
-  "dependencies": [],
-  "codeowners": ["@Maypeur"],
+  "codeowners": [
+    "@Maypeur",
+    "@fschmid1"
+  ],
   "config_flow": true,
+  "dependencies": [],
   "documentation": "https://github.com/Maypeur/MyDutyHA",
+  "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/Maypeur/MyDutyHA/issues",
-  "iot_class": "cloud_polling"
+  "version": "0.2.3"
 }

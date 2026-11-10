@@ -1,95 +1,200 @@
+"""Config and options flow for MyDutyHA (MYDUTY app login, no share links)."""
+
+from __future__ import annotations
+
+import logging
+import re
+
+import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
+
+from .api import MyDutyApi, MyDutyAuthError, MyDutyError
 from .const import DOMAIN
-import voluptuous as vol
-from .api import MyDutyApi
+
+_LOGGER = logging.getLogger(__name__)
 
 DEFAULT_SYNC_TIMES = ["00:05", "12:00", "17:30"]
+TIME_RE = re.compile(r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")
+
+
+def _entity_key(entry: config_entries.ConfigEntry) -> str:
+    """Stable key used for entity ids; keeps ids of pre-0.2 entries."""
+    return str(
+        entry.options.get("id")
+        or entry.data.get("id")
+        or entry.data.get("share_id")
+        or entry.data.get("user_id")
+    )
+
+
+def _schema(include_creds: bool, defaults: dict | None = None) -> vol.Schema:
+    defaults = defaults or {}
+    fields: dict = {
+        vol.Required("name", default=defaults.get("name", "")): str,
+        vol.Optional(
+            "user_id", default=defaults.get("user_id", "")
+        ): str,
+        vol.Optional("group_id", default=defaults.get("group_id", "")): str,
+        vol.Optional(
+            "member_user_id", default=defaults.get("member_user_id", "")
+        ): str,
+    }
+    if include_creds:
+        fields[vol.Optional("email", default=defaults.get("email", ""))] = str
+        fields[vol.Optional("password", default="")] = str
+    return vol.Schema(fields)
+
+
+async def _resolve_user_id(user_id: str, email: str, password: str) -> tuple[str | None, str | None]:
+    """Return (user_id, error_key)."""
+    if user_id:
+        if not user_id.isdigit():
+            return None, "invalid_user_id"
+        api = MyDutyApi(user_id)
+        await api.async_bootstrap()
+        try:
+            await api.async_user()
+        except MyDutyError:
+            return None, "unknown_user"
+        return user_id, None
+
+    if email and password:
+        api = MyDutyApi()
+        await api.async_bootstrap()
+        try:
+            user = await api.async_login(email, password)
+        except MyDutyAuthError:
+            return None, "invalid_auth"
+        except MyDutyError as err:
+            _LOGGER.debug("MYDUTY login failed: %s", err)
+            return None, "cannot_connect"
+        return str(user["userId"]), None
+
+    return None, "credentials_required"
 
 
 class MyDutyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input=None):
-        errors = {}
+        errors: dict[str, str] = {}
         if user_input is not None:
-            share_id = user_input.get("share_id")
-            name = user_input.get("name")
-            # Validate user_id format
-            if not share_id or not str(share_id).isdigit():
-                errors["share_id"] = "invalid_share_id"
+            name = (user_input.get("name") or "").strip()
+            user_id = (user_input.get("user_id") or "").strip()
+            email = (user_input.get("email") or "").strip()
+            password = user_input.get("password") or ""
+            group_id = (user_input.get("group_id") or "").strip()
+            member_id = (user_input.get("member_user_id") or "").strip()
+            if not name:
+                errors["name"] = "required"
+            elif bool(group_id) != bool(member_id):
+                errors["base"] = "group_pair_required"
+            elif group_id and not (group_id.isdigit() and member_id.isdigit()):
+                errors["base"] = "group_ids_numeric"
             else:
-                # Verify share exists by fetching duty types (this will also parse real userId)
-                api = MyDutyApi(share_id)
-                try:
-                    duty_types = await api.fetch_duty_types()
-                    if not duty_types:
-                        # Try schedule as fallback
-                        sched = await api.fetch_schedule()
-                        body = sched.get("body") if isinstance(sched, dict) else None
-                        if not body:
-                            errors["share_id"] = "invalid_share_id"
-                except Exception:
-                    errors["share_id"] = "invalid_share_id"
+                resolved, error = await _resolve_user_id(user_id, email, password)
+                if error:
+                    errors["base" if error != "invalid_user_id" else "user_id"] = error
+                else:
+                    await self.async_set_unique_id(resolved)
+                    self._abort_if_unique_id_configured()
+                    data = {"name": name, "id": resolved, "user_id": resolved}
+                    if group_id:
+                        data["group_id"] = group_id
+                        data["member_user_id"] = member_id
+                    return self.async_create_entry(title=name, data=data)
 
-            if not errors:
-                # Store share_id in the config entry data
-                entry_data = {"name": name, "share_id": share_id}
-                return self.async_create_entry(title=name, data=entry_data)
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema({
-                vol.Required("name"): str,
-                vol.Required("share_id"): str,
-            }),
+            data_schema=_schema(include_creds=True),
             errors=errors,
         )
 
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
-        return MyDutyOptionsFlowHandler(config_entry)
+        return MyDutyOptionsFlowHandler()
 
 
 class MyDutyOptionsFlowHandler(config_entries.OptionsFlow):
-    def __init__(self, config_entry):
-        self._config_entry = config_entry
-
     async def async_step_init(self, user_input=None):
-        errors = {}
-        
+        errors: dict[str, str] = {}
+        entry = self.config_entry
+        options = entry.options
+
         if user_input is not None:
-            # Collect times from the three separate fields
-            times = []
+            times: list[str] = []
             for i in range(1, 4):
-                time_value = user_input.get(f"sync_time_{i}", "").strip()
-                if time_value:
-                    # Validate HH:MM format
-                    if not vol.Match(r"^([0-1][0-9]|2[0-3]):[0-5][0-9]$")(time_value):
-                        errors[f"sync_time_{i}"] = "invalid_format"
-                    else:
-                        times.append(time_value)
-            
-            # Ensure at least one time is provided
+                value = (user_input.get(f"sync_time_{i}") or "").strip()
+                if not value:
+                    continue
+                if not TIME_RE.match(value):
+                    errors[f"sync_time_{i}"] = "invalid_format"
+                else:
+                    times.append(value)
             if not times and not errors:
                 errors["base"] = "at_least_one_time"
-            
+
+            current = str(options.get("user_id") or entry.data.get("user_id") or "")
+            user_id = (user_input.get("user_id") or "").strip()
+            email = (user_input.get("email") or "").strip()
+            password = user_input.get("password") or ""
+            group_id = (user_input.get("group_id") or "").strip()
+            member_id = (user_input.get("member_user_id") or "").strip()
+            if bool(group_id) != bool(member_id):
+                errors["base"] = "group_pair_required"
+            elif group_id and not (group_id.isdigit() and member_id.isdigit()):
+                errors["base"] = "group_ids_numeric"
+
+            new_user_id = current
+            if user_id or (email and password):
+                new_user_id, error = await _resolve_user_id(user_id, email, password)
+                if error:
+                    errors["base" if error != "invalid_user_id" else "user_id"] = error
+                    new_user_id = current
+
+            if not errors and not new_user_id:
+                errors["base"] = "credentials_required"
+
             if not errors:
-                return self.async_create_entry(title="Sync Times", data={"sync_times": times})
-        
-        # Load existing sync times with defaults
-        sync_times = self._config_entry.options.get("sync_times", DEFAULT_SYNC_TIMES)
-        
-        # Ensure we have at least 3 slots (pad with empty strings if needed)
+                return self.async_create_entry(
+                    title="",
+                    data={
+                        "sync_times": times,
+                        "user_id": new_user_id,
+                        # keep the entity key of pre-0.2 entries
+                        "id": _entity_key(entry),
+                        "group_id": group_id,
+                        "member_user_id": member_id,
+                    },
+                )
+
+        sync_times = list(options.get("sync_times", DEFAULT_SYNC_TIMES))
         while len(sync_times) < 3:
             sync_times.append("")
-        
-        data_schema = vol.Schema({
-            vol.Optional("sync_time_1", default=sync_times[0]): str,
-            vol.Optional("sync_time_2", default=sync_times[1]): str,
-            vol.Optional("sync_time_3", default=sync_times[2]): str,
-        })
-        
-        return self.async_show_form(
-            step_id="init",
-            data_schema=data_schema,
-            errors=errors,
+
+        schema = vol.Schema(
+            {
+                vol.Optional(
+                    "user_id",
+                    default=str(options.get("user_id") or entry.data.get("user_id") or ""),
+                ): str,
+                vol.Optional("email", default=""): str,
+                vol.Optional("password", default=""): str,
+                vol.Optional(
+                    "group_id",
+                    default=str(options.get("group_id") or entry.data.get("group_id") or ""),
+                ): str,
+                vol.Optional(
+                    "member_user_id",
+                    default=str(
+                        options.get("member_user_id")
+                        or entry.data.get("member_user_id")
+                        or ""
+                    ),
+                ): str,
+                vol.Optional("sync_time_1", default=sync_times[0]): str,
+                vol.Optional("sync_time_2", default=sync_times[1]): str,
+                vol.Optional("sync_time_3", default=sync_times[2]): str,
+            }
         )
+        return self.async_show_form(step_id="init", data_schema=schema, errors=errors)

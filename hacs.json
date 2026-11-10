@@ -1,14 +1,5 @@
 {
   "name": "MyDutyHA",
-  "description": "Planning synchronization for hospital schedules from MyDuty to Home Assistant.",
-  "repository": "Maypeur/MyDutyHA",
-  "category": "integration",
-  "full_name": "Maypeur/MyDutyHA",
-  "file_name": "mydutyha",
-  "domain": "mydutyha",
-  "requirements": ["aiohttp"],
-  "version": "0.1.0",
-  "homeassistant": "2024.0.0",
   "render_readme": true,
-  "country": "FR"
+  "homeassistant": "2024.0.0"
 }
